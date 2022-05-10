@@ -3,10 +3,32 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count
 from django.contrib import messages
-from .models import Poll, Choice, Vote
+from .models import Poll, Choice, Vote, MiningNode
 from .forms import PollAddForm, EditPollForm, ChoiceAddForm
 from django.http import HttpResponse
+# For timestamp
+import datetime
+# Calculating the hash
+# in order to add digital
+# fingerprints to the blocks
+import hashlib
+# To store data
+# in our blockchain
+import json
+import uuid
+import base64
+import sys
+import time
+from django.http import JsonResponse
+from django.http import HttpResponse
+from django.core.signing import Signer
+from os.path import exists
+import numpy as np
+from p2pnetwork.node import Node
+from p2pnetwork.nodeconnection import NodeConnection
 
+def index(request):
+    return HttpResponse("Hello, world. You're at the polls index.")
 
 @login_required()
 def polls_list(request):
@@ -221,3 +243,67 @@ def endpoll(request, poll_id):
         return render(request, 'polls/poll_result.html', {'poll': poll})
     else:
         return render(request, 'polls/poll_result.html', {'poll': poll})
+
+
+
+
+def initializeNode(request):
+    #check if blockdata exists on drive already
+    # Create the object of the class blockchain
+    #blockchain = Blockchain()
+    miningnode = MiningNode()
+    time = str(datetime.datetime.now())
+    #create initial block
+    block_height = 0
+    prev_hash="000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+    prev_proof = 1 #aka nonce
+    #check for existing blocks on drive
+    done_processing_blocks = False
+    data_from_datfile = {}
+    print("begin processing blockdata")
+    while(not done_processing_blocks):
+        file = "block"+str(block_height)+".dat"
+        #if existing file
+        if(exists(file)):
+            print("file exists")
+            if(block_height==0):
+                #miningnode.chain.append()
+                with open(file) as datfile:
+                    data_from_datfile = json.loads(datfile)
+                    print("data from datfile")
+                    print(str(file))
+                    print(data_from_datfile)
+                    print(base64.b64decode(data_from_datfile))
+                    miningnode.previousBlock = base64.b64decode(data_from_datfile)
+                print("genesis block data cant be verified until additional blocks are produced")
+            else:
+                with open(file) as datfile:
+                    data_from_datfile = json.loads(datfile)
+                    print("data from datfile")
+                    print(str(file))
+                    print(data_from_datfile)
+                    print(base64.b64decode(data_from_datfile))
+                    extractedBlockHeader = {"version":1, "proof":1, "prev_block_height":1, "prev_block_hash":"000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f", "this_block_hash":"000000000099d934ff763ae46a2a6c1726689c085ae165831eb3f1b60a8ce26f", "time": 1651964655.709359}
+                    extractedBlockTransactions = {"transactions":"data"}
+                    #if merklerooted transactions of previous block = previous block's hash
+                    if(miningnode.verifyBlock(miningnode.previousBlock["transactions"], extractedBlockHeader["prev_block_hash"])):
+                        print("previous blocks merkle root hash is equal to this blocks prev_block_hash")
+                        print("on to the next block")
+                    else:
+                        print("BAD BLOCKCHAIN!")
+                        break
+            block_height+=1
+        else:
+            if(block_height==0):
+                #if no existing blocks, create first block
+                # nodeversion, proof, prev_block_height, prev_hash
+                #miningnode.createBlock(miningnode.miningnodeversion, 1, initial_block_height, initial_prev_hash)
+                #automatically create first citizen so there is at least 1 transaction, genesis block hash same as vouching user id
+                miningnode.createNewCitizen("00000000", {"name":"admin", "age":33})
+                miningnode.createBasicIncome(miningnode.tempUser, {"points":100.0})
+                #automatically create candidate block so there is something there 
+                print("CREATE CANDIDASTE BLOCK")
+                miningnode.createCandidateBlock(block_height, prev_proof, prev_hash)
+            done_processing_blocks = True
+    miningnode.latestBlockHeight = block_height
+    return render(request, 'polls/poll_detail.html', {"data":"test"})
