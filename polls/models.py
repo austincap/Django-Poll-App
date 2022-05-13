@@ -161,7 +161,7 @@ class MiningNode:
         block = {"header":blockheader, "tx_count":len(self.memPool), "transactions":self.memPool}
         self.chain.append(block)
         print("WRITE BLOCK TO FILE")
-        bytesfile = str(block).encode("utf-8")
+        bytesfile = base64.b64encode(str(block).encode("utf-8"))
         with open("block"+str(blockheight)+".dat", "wb") as binary_file:
             binary_file.write(bytesfile)
         print(self.memPool)
@@ -238,6 +238,10 @@ class MiningNode:
             #INITIATOR IS USER/ORGANIZATION APPROVING PERMIT, RECIPIENT IS USERID OF CITIZEN GAINING NEW PERMISSION
             elif subtype=="PRIVILEGE":
                 transaction = {"type":"CREATE", "subtype":"PRIVILEGE", "initiator":initiator_address, "recipient": recipient_address, "data": data}
+            #ADD NEW PERMISSION FOR USER
+            #INITIATOR IS USER/ORGANIZATION ID PROPOSING NEW ENTITY, RECIPIENT IS PERMANENT ADDRESS OF NEW ENTITY WHICH WILL BE REFERENCED
+            elif subtype=="ENTITY":
+                transaction = {"type":"CREATE", "subtype":"ENTITY", "initiator":initiator_address, "recipient": recipient_address, "data": data}
             else:
                 print("no subtype, no tx")
         elif type == "EDIT":
@@ -250,9 +254,9 @@ class MiningNode:
             elif subtype=="LAW":
                 transaction = {"type":"EDIT", "subtype":"LAW", "initiator":initiator_address, "recipient": recipient_address, "data": data} 
             #COURTCASE CANNOT BE EDITED
-            elif subtype=="COURTCASE":
+            elif subtype=="COURTCASE" or subtype=="ENTITY":
                 print("courtcase cannot be edited")
-            #ASSET EDIT FUNCTIONS AS SENDING DATA!!!!!!!!!!!!!!!!!!!!!!!!
+            #ASSET EDIT FUNCTIONS AS SENDING DATA AND TRANSFERRING OWNERSHIP!!!!!!!!!!!!!!!!!!!!!!!!
             #INITIATOR IS USER LOSING ASSET OWNERSHIP, RECIPIENT IS USER GAINING ASSET OWNERSHIP
             #DATA CONTAINS ASSET ID e.g. {"ASSETID":"32345r235325h", "ITEM":1}
             #IF ITEM IS INT, PROECSS AS WHUFFIE, IF STRING PROCESS AS ITEM DESCRIPTION
@@ -273,6 +277,10 @@ class MiningNode:
             #INITIATOR_ADDRESS IS USER ID OF VOTER, RECIPIENT ADDRESS IS LAW ID TO BE VOTED ON
             elif subtype=="LAW":
                 transaction = {"type":"VOTE", "subtype":"LAW", "initiator":initiator_address, "recipient":recipient_address, "data":data} 
+            #VOTE ON ENTITY VALIDITY
+            #INITIATOR_ADDRESS IS USER ID OF VOTER, RECIPIENT ADDRESS IS ENTITY ID TO BE VOTED ON
+            elif subtype=="ENTITY":
+                transaction = {"type":"VOTE", "subtype":"ENTITY", "initiator":initiator_address, "recipient":recipient_address, "data":data} 
             #CANT VOTE ON ASSETS
             elif subtype=="ASSET":
                print("cant vote on assets")
@@ -301,12 +309,12 @@ class MiningNode:
                 transaction = {"type":"REMOVE", "subtype":"ASSET", "initiator":initiator_address, "recipient":recipient_address, "data":data}
             #RESCIND EXISTING PERMISSION
             #INITIATOR_ADDRESS IS USER ID OF USER LOSING PRIVILEGE, RECIPIENT IS PRIVILEGE ID
-            #DATA IS DESCRIPTION E.G. {"DESC":"ADD USER PRIVILEGE"}
+            #DATA IS DESCRIPTION E.G. {"desc":"remove voting privilege"}
             elif subtype=="PRIVILEGE":
                 transaction = {"type":"REMOVE", "subtype":"PRIVILEGE", "initiator":initiator_address, "recipient": recipient_address, "data": data}
-            #COURTCASE CANT BE REMOVED
-            elif subtype=="COURTCASE":
-                print("courtcases cannot be removed")
+            #COURTCASE AND ENTITIES CANT BE REMOVED
+            elif subtype=="COURTCASE" or subtype=="ENTITY":
+                print("courtcases and entities cannot be removed")
             else:
                 print("rejected")
         else:
@@ -335,15 +343,19 @@ class MiningNode:
     def createNewCitizen(self, vouchingUserId, citizenData):
         newCitizenId = hashlib.sha256(str(uuid.uuid4()).encode("utf-8")).hexdigest()
         self.tempUser = newCitizenId
-        self.makeTransaction("CREATE", "USER", vouchingUserId, newCitizenId, json.dumps(citizenData).encode("utf-8"))
+        self.makeTransaction("CREATE", "USER", vouchingUserId, newCitizenId, citizenData)
 
 
     def createBasicIncome(self, firstAssetOwner, assetData):
-        self.makeTransaction("CREATE", "ASSET", firstAssetOwner, hashlib.sha256(str(uuid.uuid4()).encode("utf-8")).hexdigest(), json.dumps(assetData).encode("utf-8"))
+        self.makeTransaction("CREATE", "ASSET", firstAssetOwner, hashlib.sha256(str(uuid.uuid4()).encode("utf-8")).hexdigest(), assetData)
+
+    #ENTITIES ARE LEGAL DEFINITIONS THAT MUST BE REFERENCED IN LAWS/DISPUTES/ETC
+    def createNewEntity(self, lawOrUserCreatingEntity, entityData):
+        self.makeTransaction("CREATE", "ENTITY", lawOrUserCreatingEntity, hashlib.sha256(str(uuid.uuid4()).encode("utf-8")).hexdigest(), entityData)
 
 
     def editCitizenData(self, userIDMakingChange, userIDToChange, changeToMake):
-        self.makeTransaction("EDIT", "USER", userIDMakingChange, userIDToChange, base64.b64encode(json.dumps(changeToMake).encode("utf-8")))
+        self.makeTransaction("EDIT", "USER", userIDMakingChange, userIDToChange, changeToMake)
 
     def proof_of_work(self, previous_proof):
         new_proof = 1

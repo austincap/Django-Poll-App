@@ -269,12 +269,23 @@ def initializeNode(request):
             if(block_height==0):
                 #miningnode.chain.append()
                 with open(file) as datfile:
-                    data_from_datfile = json.loads(datfile)
+                    blockdata = ""
+                    #data_from_datfile = json.loads(datfile)
                     print("data from datfile")
                     print(str(file))
-                    print(data_from_datfile)
-                    print(base64.b64decode(data_from_datfile))
-                    miningnode.previousBlock = base64.b64decode(data_from_datfile)
+                    lines = datfile.readlines()
+                    # for line in lines:
+                    #     print(line.rstrip())
+                    for line in lines:
+                        #print(base64.b64decode(str(line).encode("utf-8")))
+                        # Decode UTF-8 bytes to Unicode, and convert single quotes 
+                        # to double quotes to make it valid JSON
+                        my_json = base64.b64decode(line).decode("utf-8").replace("'", '"')
+                        #print(my_json)
+                        blockdata += my_json
+                    #print(str(datfile).encode("utf-8"))
+                    print(blockdata)
+                    #miningnode.previousBlock = base64.b64decode(datfile)
                 print("genesis block data cant be verified until additional blocks are produced")
             else:
                 with open(file) as datfile:
@@ -298,12 +309,22 @@ def initializeNode(request):
                 #if no existing blocks, create first block
                 # nodeversion, proof, prev_block_height, prev_hash
                 #miningnode.createBlock(miningnode.miningnodeversion, 1, initial_block_height, initial_prev_hash)
-                #automatically create first citizen so there is at least 1 transaction, genesis block hash same as vouching user id
-                miningnode.createNewCitizen("00000000", {"name":"admin", "age":33})
-                miningnode.createBasicIncome(miningnode.tempUser, {"points":100.0})
+                #automatically create first entity (users), then create citizen so there is at least 1 transaction, genesis block hash same as vouching user id
+                miningnode.createNewEntity(prev_hash, {"name":"USER", "type":"noun", "desc":"a human who is using this software as intended"})
+                miningnode.createNewCitizen(prev_hash, {"name":"admin", "age":33})
+                #then create the other initial entities using newly generated USERID
+                miningnode.createNewEntity(miningnode.tempUser, {"name":"LAW", "type":"noun", "desc":"a law created using this software"})
+                miningnode.createNewEntity(miningnode.tempUser, {"name":"DISPUTE", "type":"noun", "desc":"a dispute between two users created using this software"})
+                miningnode.createNewEntity(miningnode.tempUser, {"name":"POINTS", "type":"noun", "desc":"the default currency"})    
+                miningnode.createNewEntity(miningnode.tempUser, {"name":"INITIATE", "type":"verb", "desc":"initiating a transaction with this software"})
+                miningnode.createNewEntity(miningnode.tempUser, {"name":"STEAL", "type":"verb", "desc":"take something you dont own without consent"})
+                miningnode.createNewEntity(miningnode.tempUser, {"name":"VOTE", "type":"verb", "desc":"impose your will on society"})
+                miningnode.createNewEntity(miningnode.tempUser, {"name":"OWN", "type":"verb", "desc":"possess full rights over an asset"})
+                #miningnode.createNewEntity(prev_hash, {"name":"ADULT", "type":"qualifier", "desc":"if age>25"})
+                miningnode.createBasicIncome(miningnode.tempUser, {"POINTS":100.0})
                 #automatically create candidate block so there is something there 
-                print("CREATE CANDIDASTE BLOCK")
+                print("CREATE CANDIDATE BLOCK")
                 miningnode.createCandidateBlock(block_height, prev_proof, prev_hash)
             done_processing_blocks = True
     miningnode.latestBlockHeight = block_height
-    return render(request, 'polls/poll_detail.html', {"data":"test"})
+    return render(request, 'polls/show_constitution.html', {"data":"test"})
