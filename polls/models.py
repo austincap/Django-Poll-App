@@ -24,6 +24,13 @@ import numpy as np
 from p2pnetwork.node import Node
 from p2pnetwork.nodeconnection import NodeConnection
 
+OUTBOUND_PORT = 10001
+INBOUND_PORT = 10002
+BOOTSTRAP_LIST = [ "localhost:5999"
+                 , "localhost:5998"
+                 , "localhost:5997" ]
+
+
 class MyOwnNodeConnection (NodeConnection):
     # Python class constructor
      def __init__(self, main_node, sock, id, host, port):
@@ -131,47 +138,53 @@ class Vote(models.Model):
 
 class MiningNode:
     def __init__(self):
-        miningNode = MyOwnPeer2PeerNode("127.0.0.1", 10001)
+        miningNode = MyOwnPeer2PeerNode("127.0.0.1", OUTBOUND_PORT)
+        miningNode.debug = True
         time.sleep(1)
         # Do not forget to start your node!
         miningNode.start()
         time.sleep(1)
         # Connect with another node, otherwise you do not create any network!
-        miningNode.connect_with_node('127.0.0.1', 10002)
+        miningNode.connect_with_node("127.0.0.1", INBOUND_PORT)
         time.sleep(2)
         # Example of sending a message to the nodes (dict).
-        miningNode.send_to_nodes({"message": "Hi there!"})
+        miningNode.send_to_nodes({"message": "do u have blocks?"})
         time.sleep(5) # Create here your main loop of the application
-        miningNode.stop()
+        #miningNode.stop()
 
         self.previousBlock = {}
         self.miningnodeversion = 1
         self.chain = []
-        self.latestBlockHeight = 0
+        self.latestBlockHeight = 1
         self.memPool = {}
         self.candidateBlock = {}
         self.tempUser = ""
+        self.legalDictionary = {}
       
 
     #create binary data from memPool JSON
     def createCandidateBlock(self, blockheight, proof, prev_hash):
         #header = {version, prev_block_hash/prev_block_merkleroot, thisblocks_merkleroot, time, difficulty, nonce}
-        blockheader = {"version":self.miningnodeversion, "proof":proof, "prev_block_height":blockheight+1, "prev_block_hash":prev_hash, "this_block_hash": self.get_merkle_root(self.memPool), "time":datetime.datetime.timestamp(datetime.datetime.now()) }
-        print("BLOCK HEADEDR")
+        blockheader = {"version":self.miningnodeversion, "proof":proof, "prev_block_height":str(blockheight-1), "prev_block_hash":prev_hash, "this_block_hash": self.get_merkle_root(self.memPool), "time":datetime.datetime.timestamp(datetime.datetime.now()) }
+        print("BLOCK HEADER")
         block = {"header":blockheader, "tx_count":len(self.memPool), "transactions":self.memPool}
-        self.chain.append(block)
+        #self.chain.append(block)
+        self.candidateBlock = block
+        print("CANDIDATE BLOCK DATA STORED IN PREV BLOCK SLOT, AND ADDED TO CHAIN")
         print("WRITE BLOCK TO FILE")
         bytesfile = base64.b64encode(str(block).encode("utf-8"))
-        with open("block"+str(blockheight)+".dat", "wb") as binary_file:
+        with open("block"+str(blockheight-1)+".dat", "wb") as binary_file:
             binary_file.write(bytesfile)
-        print(self.memPool)
+        #print(self.memPool)
+        self.memPool = {}
         print("candidateBlockCreated")
+        print("memPool emptied")
 
     def get_merkle_root(self, transactionsInMemPool):
         branches = []
         for timestamp, tx in transactionsInMemPool.items():
-            print("TX.txid")
-            print(tx["txid"])
+            #print("TX.txid")
+            #print(tx["txid"])
             branches.append(tx["txid"])
             #print("txid")
             #print(txid)
@@ -206,7 +219,9 @@ class MiningNode:
     def makeTransaction(self, type, subtype, initiator_address, recipient_address, data):
         #TRANSACTION LOOKS LIKE 
         #{ 122317812112.0121: {"v":1, "txid":"1212412451cab787fe" , "type":CREATE, "subtype":"USER", "initiator":"3243243abc9867876a8001234", "recipient":"21b421b123421b00031", "data":{data}}}
-        time = datetime.datetime.timestamp(datetime.datetime.now())
+        #time = datetime.datetime.timestamp(datetime.datetime.now())
+        timestamp = str(time.time())
+        #print(timestamp)
         #create signing object with current time as salt
         txsignature = Signer()
         #UNIQUE IDS CREATE EVERY SINGLE TIME FOR EACH USER RECEIVING NEW PRIVILEGE OR ASSET
@@ -321,12 +336,12 @@ class MiningNode:
             print("BAD TRANSACTION")
         print("transaction id")
         txid = hashlib.sha256(str(transaction).encode('utf-8')).hexdigest()
-        print(txid)
+        #print(txid)
         transaction["v"] = self.miningnodeversion
         transaction["txid"] = txid
         #transaction["signature"] = 
         #add transaction to memPool with time as key
-        self.memPool[time] = transaction
+        self.memPool[timestamp] = transaction
         print("tx added to mempool")
         return transaction
         # print("binary data")

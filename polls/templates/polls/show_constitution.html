@@ -4,10 +4,16 @@
 {% block content %}
 <div class="container">
     <h1>Current state of Constitution page</h1>
-    {% if messages %}
-    <div class="messages">
-        {% for message in messages %}
-        <div {% if message.tags %} class="{{ message.tags }}" {% endif %}>{{ message }}
+    {% if blockID %}<h2>updated to block ID {{blockID}}</h2>{% endif %}
+    {% if transactions %}
+    <div>
+        {% for tx in transactions %}
+            <span>{{tx}}</span>|<span>{{ transactions|get_entity_data:tx }}</span><br/>
+        {% endfor %}
+    </div>
+    <div class="transactions">
+        {% for tx in transactions %}
+        <div>{{ tx.txid }}
             <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
             </button>
@@ -16,17 +22,7 @@
     </div>
     {% endif %}
     <hr>
-    <h2 class="mt-3 mb-3">{{ poll }}</h2>
-    <form action="{% url 'polls:vote' poll.id %}" method="POST">
-        {% csrf_token %}
-        {% for choice in poll.choice_set.all %}
-        <input type="radio" name="choice" id="choice{{ forloop.counter }}" value="{{ choice.id }}">
-        <label for="choice{{ forloop.counter }}">{{ choice.choice_text }}</label>
-        <br>
-        {% endfor %}
-        <input type="submit" value="Vote" class="btn btn-primary mt-3">
-        <a class="btn btn-warning mt-3" href="{% url 'polls:list' %}" role="button">Cancel</a>
-    </form>
+
 
 </div>
 

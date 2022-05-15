@@ -5,15 +5,9 @@ from django.db.models import Count
 from django.contrib import messages
 from .models import Poll, Choice, Vote, MiningNode
 from .forms import PollAddForm, EditPollForm, ChoiceAddForm
-from django.http import HttpResponse
-# For timestamp
+from django.template import loader
 import datetime
-# Calculating the hash
-# in order to add digital
-# fingerprints to the blocks
 import hashlib
-# To store data
-# in our blockchain
 import json
 import uuid
 import base64
@@ -26,6 +20,11 @@ from os.path import exists
 import numpy as np
 from p2pnetwork.node import Node
 from p2pnetwork.nodeconnection import NodeConnection
+
+
+
+from django.template.defaulttags import register
+
 
 def index(request):
     return HttpResponse("Hello, world. You're at the polls index.")
@@ -258,44 +257,46 @@ def initializeNode(request):
     prev_hash="000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
     prev_proof = 1 #aka nonce
     #check for existing blocks on drive
-    done_processing_blocks = False
+    not_done_processing_blocks = True
     data_from_datfile = {}
     print("begin processing blockdata")
-    while(not done_processing_blocks):
+    while(not_done_processing_blocks):
         file = "block"+str(block_height)+".dat"
+        blockdata = ""
         #if existing file
         if(exists(file)):
+            print(str(file))
             print("file exists")
             if(block_height==0):
-                #miningnode.chain.append()
                 with open(file) as datfile:
-                    blockdata = ""
-                    #data_from_datfile = json.loads(datfile)
                     print("data from datfile")
-                    print(str(file))
                     lines = datfile.readlines()
-                    # for line in lines:
-                    #     print(line.rstrip())
                     for line in lines:
-                        #print(base64.b64decode(str(line).encode("utf-8")))
-                        # Decode UTF-8 bytes to Unicode, and convert single quotes 
-                        # to double quotes to make it valid JSON
                         my_json = base64.b64decode(line).decode("utf-8").replace("'", '"')
-                        #print(my_json)
                         blockdata += my_json
-                    #print(str(datfile).encode("utf-8"))
-                    print(blockdata)
-                    #miningnode.previousBlock = base64.b64decode(datfile)
+                    #print(blockdata)
+                    blockdata = json.loads(blockdata)
+                    miningnode.chain.append(blockdata)
+                    miningnode.previousBlock = blockdata
+                    for tx in blockdata["transactions"]:
+                        print(blockdata["transactions"].get(tx))
+                        transaction = blockdata["transactions"].get(tx)
+                        if transaction.get("subtype") == "ENTITY":
+                            miningnode.legalDictionary[transaction["txid"]] = transaction["data"]["name"]
                 print("genesis block data cant be verified until additional blocks are produced")
             else:
                 with open(file) as datfile:
-                    data_from_datfile = json.loads(datfile)
                     print("data from datfile")
-                    print(str(file))
-                    print(data_from_datfile)
-                    print(base64.b64decode(data_from_datfile))
-                    extractedBlockHeader = {"version":1, "proof":1, "prev_block_height":1, "prev_block_hash":"000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f", "this_block_hash":"000000000099d934ff763ae46a2a6c1726689c085ae165831eb3f1b60a8ce26f", "time": 1651964655.709359}
-                    extractedBlockTransactions = {"transactions":"data"}
+                    lines = datfile.readlines()
+                    for line in lines:
+                        my_json = base64.b64decode(line).decode("utf-8").replace("'", '"')
+                        blockdata += my_json
+                    blockdata = json.loads(blockdata)
+                    miningnode.chain.append(blockdata)
+                    extractedBlockHeader = blockdata.header
+                    extractedBlockTransactions = blockdata.transactions
+                    #extractedBlockHeader = {"version":1, "proof":1, "prev_block_height":1, "prev_block_hash":"000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f", "this_block_hash":"000000000099d934ff763ae46a2a6c1726689c085ae165831eb3f1b60a8ce26f", "time": 1651964655.709359}
+                    #extractedBlockTransactions = {"transactions":"data"}
                     #if merklerooted transactions of previous block = previous block's hash
                     if(miningnode.verifyBlock(miningnode.previousBlock["transactions"], extractedBlockHeader["prev_block_hash"])):
                         print("previous blocks merkle root hash is equal to this blocks prev_block_hash")
@@ -305,6 +306,8 @@ def initializeNode(request):
                         break
             block_height+=1
         else:
+            print("blockheight")
+            print(block_height)
             if(block_height==0):
                 #if no existing blocks, create first block
                 # nodeversion, proof, prev_block_height, prev_hash
@@ -324,7 +327,41 @@ def initializeNode(request):
                 miningnode.createBasicIncome(miningnode.tempUser, {"POINTS":100.0})
                 #automatically create candidate block so there is something there 
                 print("CREATE CANDIDATE BLOCK")
-                miningnode.createCandidateBlock(block_height, prev_proof, prev_hash)
-            done_processing_blocks = True
+                miningnode.createCandidateBlock(block_height+1, prev_proof, prev_hash)
+                #actually add initial block data to chain upon next iteration of chain
+            else:
+                #stop processing blocks when no blockX.dat files available to process and blockheight is > 0
+                not_done_processing_blocks = False
     miningnode.latestBlockHeight = block_height
-    return render(request, 'polls/show_constitution.html', {"data":"test"})
+    # print(miningnode.chain)
+    context = {
+        "blockID":miningnode.chain[int(block_height-1)]["header"]["prev_block_height"],
+        "transactions":miningnode.chain[int(block_height-1)]["transactions"]
+    }
+    #print(context)
+    #print(miningnode.legalDictionary)
+    return render(request, "polls/show_constitution.html", context)
+
+
+@register.filter
+def get_entity_data(dictionary, key):
+    value = dictionary.get(key)
+    #print(value)
+    if value.get("subtype") == "ENTITY":
+        return value["data"]["name"]+": "+value["data"]["desc"]
+    elif value.get("subtype") == "LAW":
+        return "LAW ID "+value["txid"]+": "+value["data"]["desc"]
+    else:
+        return value["txid"]
+
+# def poll_detail(request, poll_id):
+#     poll = get_object_or_404(Poll, id=poll_id)
+
+#     if not poll.active:
+#         return render(request, 'polls/poll_result.html', {'poll': poll})
+#     loop_count = poll.choice_set.count()
+#     context = {
+#         'poll': poll,
+#         'loop_time': range(0, loop_count),
+#     }
+#     return render(request, 'polls/poll_detail.html', context)
