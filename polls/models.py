@@ -23,6 +23,8 @@ from os.path import exists
 import numpy as np
 from p2pnetwork.node import Node
 from p2pnetwork.nodeconnection import NodeConnection
+from pyp2p.net import *
+
 
 OUTBOUND_PORT = 10001
 INBOUND_PORT = 10002
@@ -30,6 +32,12 @@ BOOTSTRAP_LIST = [ "localhost:5999"
                  , "localhost:5998"
                  , "localhost:5997" ]
 
+def node_callback(event, node, connected_node, data):
+    try:
+        if event != 'node_request_to_stop': # node_request_to_stop does not have any connected_node, while it is the main_node that is stopping!
+            print('Event: {} from main node {}: connected node {}: {}'.format(event, node.id, connected_node.id, data))
+    except Exception as e:
+        print(e)
 
 class MyOwnNodeConnection (NodeConnection):
     # Python class constructor
@@ -138,19 +146,23 @@ class Vote(models.Model):
 
 class MiningNode:
     def __init__(self):
-        miningNode = MyOwnPeer2PeerNode("127.0.0.1", OUTBOUND_PORT)
+        #miningNode = MyOwnPeer2PeerNode("127.0.0.1", OUTBOUND_PORT)
+        miningNode = Node("127.0.0.1", INBOUND_PORT, node_callback)
         miningNode.debug = True
-        time.sleep(1)
-        # Do not forget to start your node!
+        # time.sleep(1)
+        # # Do not forget to start your node!
         miningNode.start()
-        time.sleep(1)
-        # Connect with another node, otherwise you do not create any network!
-        miningNode.connect_with_node("127.0.0.1", INBOUND_PORT)
-        time.sleep(2)
-        # Example of sending a message to the nodes (dict).
-        miningNode.send_to_nodes({"message": "do u have blocks?"})
-        time.sleep(5) # Create here your main loop of the application
-        #miningNode.stop()
+        # time.sleep(1)
+        # # Connect with another node, otherwise you do not create any network!
+        miningNode.connect_with_node("127.0.0.1", OUTBOUND_PORT)
+        # time.sleep(2)
+        # # Example of sending a message to the nodes (dict).
+        #Setup Alice's p2p node.
+        # alice = Net(passive_bind="192.168.1.7", passive_port=10003, interface="eth0:2", node_type="passive", debug=1)
+        # alice.start()
+        # alice.bootstrap()
+        # alice.advertise()
+
 
         self.previousBlock = {}
         self.miningnodeversion = 1
