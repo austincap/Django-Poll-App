@@ -24,8 +24,8 @@ import numpy as np
 from p2pnetwork.node import Node
 from p2pnetwork.nodeconnection import NodeConnection
 from pyp2p.net import *
-
-
+import os
+path = "C:/Users/Austin/Documents/GitHub/Django-Poll-App/secondserver/ledgerdata"
 OUTBOUND_PORT = 10001
 INBOUND_PORT = 10002
 BOOTSTRAP_LIST = [ "localhost:5999"
@@ -45,6 +45,7 @@ class MyOwnNodeConnection (NodeConnection):
         super(MyOwnNodeConnection, self).__init__(main_node, sock, id, host, port)
 
 class MyOwnPeer2PeerNode (Node):
+    latestBlockHeight = 0
     # Python class constructor
     def __init__(self, host, port, id=None, callback=None, max_connections=0):
         super(MyOwnPeer2PeerNode, self).__init__(host, port, id, callback, max_connections)
@@ -54,6 +55,7 @@ class MyOwnPeer2PeerNode (Node):
         
     def inbound_node_connected(self, connected_node):
         print("inbound_node_connected: " + connected_node.id)
+        self.node_message(connected_node, {"txt":"DO YOU NEED BLOCKDATA?", "blockheight":1})
 
     def inbound_node_disconnected(self, connected_node):
         print("inbound_node_disconnected: " + connected_node.id)
@@ -61,14 +63,35 @@ class MyOwnPeer2PeerNode (Node):
     def outbound_node_disconnected(self, connected_node):
         print("outbound_node_disconnected: " + connected_node.id)
 
-    def node_message(self, connected_node, data):
-        print("node_message from " + connected_node.id + ": " + str(data))
+    # def node_message(self, connected_node, data):
+    #     print("node_message from " + connected_node.id + ": " + str(data))
         
     def node_disconnect_with_outbound_node(self, connected_node):
         print("node wants to disconnect with oher outbound node: " + connected_node.id)
         
     def node_request_to_stop(self):
         print("node is requested to stop!")
+
+    def node_message(self, connected_node, data):
+        print("node_message from " + connected_node.id + ": " + str(data.txt))
+        print(str(data.blockheight))
+        # if str(data.txt)=="DO YOU NEED BLOCKDATA?":
+        #     # Getting the list of directories
+        #     dir = os.listdir(path)
+        #     # Checking if the list is empty or not
+        #     if len(dir) == 0:
+        #         print("YES")
+        #     else:
+        #         print("Not empty directory")
+        if str(data.txt)=="GET BLOCKDATA FILE":
+            print("request to send blockdata for block number ")
+            print(data.blockheight)
+        elif str(data.txt)=="GET LATEST BLOCKHEIGHT":
+            connected_node.node_message(self, {"txt":"RECEIVE LATEST BLOCKHEIGHT", "blockheight":self.latestBlockHeight})
+        elif str(data.txt)=="RECEIVE LATEST BLOCKHEIGHT":
+            print("received latest block height")
+            print(data.blockheight)
+
 
     # OPTIONAL
     # If you need to override the NodeConection as well, you need to
@@ -121,7 +144,6 @@ class Poll(models.Model):
     def __str__(self):
         return self.text
 
-
 class Choice(models.Model):
     poll = models.ForeignKey(Poll, on_delete=models.CASCADE)
     choice_text = models.CharField(max_length=255)
@@ -133,7 +155,6 @@ class Choice(models.Model):
     def __str__(self):
         return f"{self.poll.text[:25]} - {self.choice_text[:25]}"
 
-
 class Vote(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     poll = models.ForeignKey(Poll, on_delete=models.CASCADE)
@@ -143,54 +164,68 @@ class Vote(models.Model):
         return f'{self.poll.text[:15]} - {self.choice.choice_text[:15]} - {self.user.username}'
 
 
-
 class MiningNode:
     def __init__(self):
         #miningNode = MyOwnPeer2PeerNode("127.0.0.1", OUTBOUND_PORT)
         miningNode = Node("127.0.0.1", INBOUND_PORT, node_callback)
+        self.mining_node_instance = miningNode
         miningNode.debug = True
         # time.sleep(1)
         # # Do not forget to start your node!
-        miningNode.start()
-        # time.sleep(1)
-        # # Connect with another node, otherwise you do not create any network!
-        miningNode.connect_with_node("127.0.0.1", OUTBOUND_PORT)
-        # time.sleep(2)
-        # # Example of sending a message to the nodes (dict).
-        #Setup Alice's p2p node.
-        # alice = Net(passive_bind="192.168.1.7", passive_port=10003, interface="eth0:2", node_type="passive", debug=1)
-        # alice.start()
-        # alice.bootstrap()
-        # alice.advertise()
-
-
+        miningNode.start()   
         self.previousBlock = {}
         self.miningnodeversion = 1
         self.chain = []
-        self.latestBlockHeight = 1
+        self.mining_node_instance.latestBlockHeight = 1
         self.memPool = {}
         self.candidateBlock = {}
         self.tempUser = ""
         self.legalDictionary = {}
       
+    def connect_to_node(self):
+        self.mining_node_instance.connect_with_node("127.0.0.1", OUTBOUND_PORT)
+
+    #if there are no other nodes to download blockdata from, generate the genesis block
+    def createGenesisBlock(self):
+        genesis_hash="000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+        genesis_proof = 1 #aka nonce
+        #automatically create first entity (users), then create citizen so there is at least 1 transaction, genesis block hash same as vouching user id
+        self.createNewEntity(genesis_hash, {"name":"USER", "type":"noun", "desc":"a human who is using this software as intended"})
+        self.createNewCitizen(genesis_hash, {"name":"admin", "age":33})
+        #then create the other initial entities using newly generated USERID
+        self.createNewEntity(self.tempUser, {"name":"LAW", "type":"noun", "desc":"a law created using this software"})
+        self.createNewEntity(self.tempUser, {"name":"DISPUTE", "type":"noun", "desc":"a dispute between two users created using this software"})
+        self.createNewEntity(self.tempUser, {"name":"POINTS", "type":"noun", "desc":"the default currency"})    
+        self.createNewEntity(self.tempUser, {"name":"INITIATE", "type":"verb", "desc":"initiating a transaction with this software"})
+        self.createNewEntity(self.tempUser, {"name":"STEAL", "type":"verb", "desc":"take something you dont own without consent"})
+        self.createNewEntity(self.tempUser, {"name":"VOTE", "type":"verb", "desc":"impose your will on society"})
+        self.createNewEntity(self.tempUser, {"name":"OWN", "type":"verb", "desc":"possess full rights over an asset"})
+        self.createBasicIncome(self.tempUser, {"POINTS":100.0})
+        #automatically create candidate block so there is something there 
+        print("CREATED GENESIS BLOCK")
+        self.createCandidateBlock(1, genesis_proof, genesis_hash)
+
+    def requestBlockData(self, blockheight):
+        self.mining_node_instance.node_message(self.mining_node_instance, {"txt":"GET BLOCKDATA FILE", "blockheight":blockheight})
+
+    def requestLatestBlockHeight(self):
+        self.mining_node_instance.node_message(self.mining_node_instance, {"txt":"GET LATEST BLOCKHEIGHT"})
 
     #create binary data from memPool JSON
     def createCandidateBlock(self, blockheight, proof, prev_hash):
         #header = {version, prev_block_hash/prev_block_merkleroot, thisblocks_merkleroot, time, difficulty, nonce}
         blockheader = {"version":self.miningnodeversion, "proof":proof, "prev_block_height":str(blockheight-1), "prev_block_hash":prev_hash, "this_block_hash": self.get_merkle_root(self.memPool), "time":datetime.datetime.timestamp(datetime.datetime.now()) }
-        print("BLOCK HEADER")
+        #print("BLOCK HEADER")
         block = {"header":blockheader, "tx_count":len(self.memPool), "transactions":self.memPool}
         #self.chain.append(block)
         self.candidateBlock = block
         print("CANDIDATE BLOCK DATA STORED IN PREV BLOCK SLOT, AND ADDED TO CHAIN")
         print("WRITE BLOCK TO FILE")
         bytesfile = base64.b64encode(str(block).encode("utf-8"))
-        with open("block"+str(blockheight-1)+".dat", "wb") as binary_file:
+        with open("ledgerdata\\block"+str(blockheight-1)+".dat", "wb") as binary_file:
             binary_file.write(bytesfile)
-        #print(self.memPool)
         self.memPool = {}
-        print("candidateBlockCreated")
-        print("memPool emptied")
+        print("MEMPOOL EMPTIED")
 
     def get_merkle_root(self, transactionsInMemPool):
         branches = []
@@ -372,14 +407,12 @@ class MiningNode:
         self.tempUser = newCitizenId
         self.makeTransaction("CREATE", "USER", vouchingUserId, newCitizenId, citizenData)
 
-
     def createBasicIncome(self, firstAssetOwner, assetData):
         self.makeTransaction("CREATE", "ASSET", firstAssetOwner, hashlib.sha256(str(uuid.uuid4()).encode("utf-8")).hexdigest(), assetData)
 
     #ENTITIES ARE LEGAL DEFINITIONS THAT MUST BE REFERENCED IN LAWS/DISPUTES/ETC
     def createNewEntity(self, lawOrUserCreatingEntity, entityData):
         self.makeTransaction("CREATE", "ENTITY", lawOrUserCreatingEntity, hashlib.sha256(str(uuid.uuid4()).encode("utf-8")).hexdigest(), entityData)
-
 
     def editCitizenData(self, userIDMakingChange, userIDToChange, changeToMake):
         self.makeTransaction("EDIT", "USER", userIDMakingChange, userIDToChange, changeToMake)

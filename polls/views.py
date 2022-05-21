@@ -20,7 +20,10 @@ from os.path import exists
 import numpy as np
 from p2pnetwork.node import Node
 from p2pnetwork.nodeconnection import NodeConnection
+import os
 
+OUTBOUND_PORT = 10001
+INBOUND_PORT = 10002
 
 
 from django.template.defaulttags import register
@@ -74,7 +77,6 @@ def list_by_user(request):
     }
     return render(request, 'polls/polls_list.html', context)
 
-
 @login_required()
 def polls_add(request):
     if request.user.has_perm('polls.add_poll'):
@@ -102,7 +104,6 @@ def polls_add(request):
     else:
         return HttpResponse("Sorry but you don't have permission to do that!")
 
-
 @login_required
 def polls_edit(request, poll_id):
     poll = get_object_or_404(Poll, pk=poll_id)
@@ -122,7 +123,6 @@ def polls_edit(request, poll_id):
 
     return render(request, "polls/poll_edit.html", {'form': form, 'poll': poll})
 
-
 @login_required
 def polls_delete(request, poll_id):
     poll = get_object_or_404(Poll, pk=poll_id)
@@ -132,7 +132,6 @@ def polls_delete(request, poll_id):
     messages.success(request, "Poll Deleted successfully.",
                      extra_tags='alert alert-success alert-dismissible fade show')
     return redirect("polls:list")
-
 
 @login_required
 def add_choice(request, poll_id):
@@ -155,7 +154,6 @@ def add_choice(request, poll_id):
         'form': form,
     }
     return render(request, 'polls/add_choice.html', context)
-
 
 @login_required
 def choice_edit(request, choice_id):
@@ -182,7 +180,6 @@ def choice_edit(request, choice_id):
     }
     return render(request, 'polls/add_choice.html', context)
 
-
 @login_required
 def choice_delete(request, choice_id):
     choice = get_object_or_404(Choice, pk=choice_id)
@@ -193,7 +190,6 @@ def choice_delete(request, choice_id):
     messages.success(
         request, "Choice Deleted successfully.", extra_tags='alert alert-success alert-dismissible fade show')
     return redirect('polls:edit', poll.id)
-
 
 def poll_detail(request, poll_id):
     poll = get_object_or_404(Poll, id=poll_id)
@@ -206,7 +202,6 @@ def poll_detail(request, poll_id):
         'loop_time': range(0, loop_count),
     }
     return render(request, 'polls/poll_detail.html', context)
-
 
 @login_required
 def poll_vote(request, poll_id):
@@ -229,7 +224,6 @@ def poll_vote(request, poll_id):
         return redirect("polls:detail", poll_id)
     return render(request, 'polls/poll_result.html', {'poll': poll})
 
-
 @login_required
 def endpoll(request, poll_id):
     poll = get_object_or_404(Poll, pk=poll_id)
@@ -244,8 +238,6 @@ def endpoll(request, poll_id):
         return render(request, 'polls/poll_result.html', {'poll': poll})
 
 
-
-
 def initializeNode(request):
     #check if blockdata exists on drive already
     # Create the object of the class blockchain
@@ -258,10 +250,15 @@ def initializeNode(request):
     prev_proof = 1 #aka nonce
     #check for existing blocks on drive
     not_done_processing_blocks = True
+    create_genesis_block = False
+    #if no existing blocks, ask requested nodes for other blocks
+    #miningnode.mining_node_instance.node_message(miningnode.mining_node_instance, {"txt":"GET LATEST BLOCK HEIGHT"})
+
     data_from_datfile = {}
     print("begin processing blockdata")
     while(not_done_processing_blocks):
-        file = "block"+str(block_height)+".dat"
+        #file = "block"+str(block_height)+".dat"
+        file = os.path.join(os.sep, "ledgerdata" + os.sep, "block"+str(block_height)+".dat")
         blockdata = ""
         #if existing file
         if(exists(file)):
@@ -306,30 +303,16 @@ def initializeNode(request):
                         break
             block_height+=1
         else:
+            #if no files
             print("blockheight")
             print(block_height)
-            if(block_height==0):
-                #if no existing blocks, create first block
-                # nodeversion, proof, prev_block_height, prev_hash
-                #miningnode.createBlock(miningnode.miningnodeversion, 1, initial_block_height, initial_prev_hash)
-                #automatically create first entity (users), then create citizen so there is at least 1 transaction, genesis block hash same as vouching user id
-                miningnode.createNewEntity(prev_hash, {"name":"USER", "type":"noun", "desc":"a human who is using this software as intended"})
-                miningnode.createNewCitizen(prev_hash, {"name":"admin", "age":33})
-                #then create the other initial entities using newly generated USERID
-                miningnode.createNewEntity(miningnode.tempUser, {"name":"LAW", "type":"noun", "desc":"a law created using this software"})
-                miningnode.createNewEntity(miningnode.tempUser, {"name":"DISPUTE", "type":"noun", "desc":"a dispute between two users created using this software"})
-                miningnode.createNewEntity(miningnode.tempUser, {"name":"POINTS", "type":"noun", "desc":"the default currency"})    
-                miningnode.createNewEntity(miningnode.tempUser, {"name":"INITIATE", "type":"verb", "desc":"initiating a transaction with this software"})
-                miningnode.createNewEntity(miningnode.tempUser, {"name":"STEAL", "type":"verb", "desc":"take something you dont own without consent"})
-                miningnode.createNewEntity(miningnode.tempUser, {"name":"VOTE", "type":"verb", "desc":"impose your will on society"})
-                miningnode.createNewEntity(miningnode.tempUser, {"name":"OWN", "type":"verb", "desc":"possess full rights over an asset"})
-                #miningnode.createNewEntity(prev_hash, {"name":"ADULT", "type":"qualifier", "desc":"if age>25"})
-                miningnode.createBasicIncome(miningnode.tempUser, {"POINTS":100.0})
-                #automatically create candidate block so there is something there 
-                print("CREATE CANDIDATE BLOCK")
-                miningnode.createCandidateBlock(block_height+1, prev_proof, prev_hash)
-                #actually add initial block data to chain upon next iteration of chain
+            if create_genesis_block:
+                # create first block
+                miningnode.createGenesisBlock()
             else:
+                miningnode.requestBlockData(block_height)
+            #actually add initial block data to chain upon next iteration of chain
+            if(miningnode.latestBlockHeight == block_height):
                 #stop processing blocks when no blockX.dat files available to process and blockheight is > 0
                 not_done_processing_blocks = False
     miningnode.latestBlockHeight = block_height
@@ -340,6 +323,10 @@ def initializeNode(request):
     }
     #print(context)
     #print(miningnode.legalDictionary)
+    print("DONE PROCESSING BLOCKDATA. blockheight:")
+    print(str(block_height))
+    # # Connect with another node, otherwise you do not create any network!
+    miningnode.mining_node_instance.connect_with_node("127.0.0.1", OUTBOUND_PORT)
     return render(request, "polls/show_constitution.html", context)
 
 
@@ -353,15 +340,3 @@ def get_entity_data(dictionary, key):
         return "LAW ID "+value["txid"]+": "+value["data"]["desc"]
     else:
         return value["txid"]
-
-# def poll_detail(request, poll_id):
-#     poll = get_object_or_404(Poll, id=poll_id)
-
-#     if not poll.active:
-#         return render(request, 'polls/poll_result.html', {'poll': poll})
-#     loop_count = poll.choice_set.count()
-#     context = {
-#         'poll': poll,
-#         'loop_time': range(0, loop_count),
-#     }
-#     return render(request, 'polls/poll_detail.html', context)
