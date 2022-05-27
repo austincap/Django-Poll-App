@@ -69,9 +69,9 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 #         await self.send(text_data=json.dumps({"payload": res, }))
 
 
-path = "C:/Users/Austin/Documents/GitHub/Django-Poll-App/ledgerdata"
-OUTBOUND_PORT = 10001
-INBOUND_PORT = 10002
+path = "C:/Users/Austin/Documents/GitHub/Django-Poll-App/secondserver/ledgerdata"
+OUTBOUND_PORT = 10002
+INBOUND_PORT = 10001
 BOOTSTRAP_LIST = [ "localhost:5999"
                  , "localhost:5998"
                  , "localhost:5997" ]
@@ -119,7 +119,7 @@ class MyOwnPeer2PeerNode (Node):
 
     def node_message(self, connected_node, data):
         print(data['txt'])
-        print("FIRST SERVERRRRRRRRRRRRRRRRRRRRRRRRRRRRRR")
+        print("SECOND SERVERRRRRRRRRRRRRRRRRRRRRRR")
         print("node_message from " + connected_node.id + ": " + str(data['txt']))
         #print(str(data['blockheight']))
         if str(data['txt'])=="GET BLOCKDATA FILE":

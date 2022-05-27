@@ -22,8 +22,8 @@ from p2pnetwork.node import Node
 from p2pnetwork.nodeconnection import NodeConnection
 import os
 
-OUTBOUND_PORT = 10001
-INBOUND_PORT = 10002
+OUTBOUND_PORT = 10002
+INBOUND_PORT = 10001
 
 
 from django.template.defaulttags import register
@@ -254,13 +254,14 @@ def initializeNode(request):
     #if no existing blocks, ask requested nodes for other blocks
     #miningnode.mining_node_instance.node_message(miningnode.mining_node_instance, {"txt":"GET LATEST BLOCK HEIGHT"})
     # # Connect with another node, otherwise you do not create any network!
+    print(miningnode)
+    print(miningnode.mining_node_instance)
     miningnode.connect_to_node()
     miningnode.requestLatestBlockHeight()
     data_from_datfile = {}
     print("begin processing blockdata")
     while(not_done_processing_blocks):
         file = "ledgerdata\\block"+str(block_height)+".dat"
-        miningnode.mining_node_instance.latestBlockHeight = block_height
         #file = os.path.join(os.sep, "ledgerdata" + os.sep, "block"+str(block_height)+".dat")
         blockdata = ""
         print(file)

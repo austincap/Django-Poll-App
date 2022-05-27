@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+
+{% block content %}
+<div class="container">
+    <h1>Current state of Constitution page</h1>
+    {% if blockID %}<h2>updated to block ID {{blockID}}</h2>{% endif %}
+    {% if transactions %}
+    <div>
+        {% for tx in transactions %}
+            <span>{{tx}}</span>|<span>{{ transactions|get_entity_data:tx }}</span><br/>
+        {% endfor %}
+    </div>
+    <div class="transactions">
+        {% for tx in transactions %}
+        <div>{{ tx.txid }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <hr>
+
+
+
+</div>
+
+{% endblock content %}
