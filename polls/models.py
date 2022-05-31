@@ -91,6 +91,7 @@ class MyOwnNodeConnection (NodeConnection):
 
 class MyOwnPeer2PeerNode (Node):
     latestBlockHeight = 0
+    previouslyRecordedNodeList = []
     # Python class constructor
     def __init__(self, host, port, id=None, callback=None, max_connections=0):
         super(MyOwnPeer2PeerNode, self).__init__(host, port, id, callback, max_connections)
@@ -127,13 +128,16 @@ class MyOwnPeer2PeerNode (Node):
             print(data['blockheight'])
             blockdata = {}
             file = "ledgerdata\\block"+str(data['blockheight'])+".dat"
-            with open(file) as datfile:
-                print("loading datafile to send to peer")
-                lines = datfile.readlines()
-                for line in lines:
-                    my_json = base64.b64decode(line).decode("utf-8").replace("'", '"')
-                    blockdata += my_json
-            connected_node.node_message(self, {"txt":"RECEIVE BLOCKDATA FILE", "blockdata":blockdata})
+            if exists(file):
+                with open(file) as datfile:
+                    print("loading datafile to send to peer")
+                    lines = datfile.readlines()
+                    for line in lines:
+                        my_json = base64.b64decode(line).decode("utf-8").replace("'", '"')
+                        blockdata += my_json
+                connected_node.node_message(self, {"txt":"RECEIVE BLOCKDATA FILE", "blockdata":blockdata})
+            else:
+                connected_node.node_message(self, {"txt":"FILE NOT FOUND"})
         elif str(data['txt'])=="RECEIVE BLOCKDATA FILE":
             print(str(data['blockdata']))
         elif str(data['txt'])=="GET LATEST BLOCKHEIGHT":
@@ -141,9 +145,11 @@ class MyOwnPeer2PeerNode (Node):
         elif str(data['txt'])=="RECEIVE LATEST BLOCKHEIGHT":
             print("received latest block height")
             print(data['blockheight'])
-            self.latestBlockHeight = data['blockheight']
-
-
+            self.latestBlockHeight == data['blockheight']
+        elif str(data['txt'])=="FILE NOT FOUND":
+            print("could not locate that block, try the next one maybe?")
+        elif str(data['txt'])=="GET PEERNODE LIST":
+            connected_node.node_message(self, {"txt":"RECEIVE PEERNODE LIST", "peernodes":self.latestBlockHeight})
     # OPTIONAL
     # If you need to override the NodeConection as well, you need to
     # override this method! In this method, you can initiate
@@ -227,7 +233,7 @@ class MiningNode:
         self.previousBlock = {}
         self.miningnodeversion = 1
         self.chain = []
-        self.latestBlockHeight = 1
+        self.latestBlockHeight = 0
         self.mining_node_instance.latestBlockHeight = self.latestBlockHeight
         self.memPool = {}
         self.candidateBlock = {}
@@ -255,7 +261,8 @@ class MiningNode:
         self.createBasicIncome(self.tempUser, {"POINTS":100.0})
         #automatically create candidate block so there is something there 
         print("CREATED GENESIS BLOCK")
-        self.createCandidateBlock(1, genesis_proof, genesis_hash)
+        self.createCandidateBlock(0, genesis_proof, genesis_hash)
+
 
     def requestBlockData(self, blockheight):
         self.mining_node_instance.node_message(self.mining_node_instance, {"txt":"GET BLOCKDATA FILE", "blockheight":blockheight})
@@ -269,12 +276,14 @@ class MiningNode:
         blockheader = {"version":self.miningnodeversion, "proof":proof, "prev_block_height":str(blockheight-1), "prev_block_hash":prev_hash, "this_block_hash": self.get_merkle_root(self.memPool), "time":datetime.datetime.timestamp(datetime.datetime.now()) }
         #print("BLOCK HEADER")
         block = {"header":blockheader, "tx_count":len(self.memPool), "transactions":self.memPool}
-        #self.chain.append(block)
+        if blockheight==0:
+            self.chain.append(block)
+            print(self.chain)
         self.candidateBlock = block
         print("CANDIDATE BLOCK DATA STORED IN PREV BLOCK SLOT, AND ADDED TO CHAIN")
         print("WRITE BLOCK TO FILE")
         bytesfile = base64.b64encode(str(block).encode("utf-8"))
-        with open("ledgerdata\\block"+str(blockheight-1)+".dat", "wb") as binary_file:
+        with open("ledgerdata\\block"+str(blockheight)+".dat", "wb") as binary_file:
             binary_file.write(bytesfile)
         self.memPool = {}
         print("MEMPOOL EMPTIED")
