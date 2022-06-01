@@ -237,6 +237,14 @@ def endpoll(request, poll_id):
     else:
         return render(request, 'polls/poll_result.html', {'poll': poll})
 
+def createTestBlock(request):
+    #choice = get_object_or_404(Choice, pk=choice_id)
+    #poll = get_object_or_404(Poll, pk=choice.poll.id)
+    #if request.user != poll.owner:
+    #    return redirect('home')
+    #choice.delete()
+    messages.success( request, "Choice Deleted successfully.", extra_tags='alert alert-success alert-dismissible fade show')
+    return redirect('show_constitution')
 
 def initializeNode(request):
     #check if blockdata exists on drive already
@@ -246,11 +254,12 @@ def initializeNode(request):
     time = str(datetime.datetime.now())
     #create initial block
     block_height = 0
-    prev_hash="000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+    genesis_hash = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+    prev_hash= genesis_hash
     prev_proof = 1 #aka nonce
     #check for existing blocks on drive
     not_done_processing_blocks = True
-    create_genesis_block = True
+    create_genesis_block = False
     #if no existing blocks, ask requested nodes for other blocks
     #miningnode.mining_node_instance.node_message(miningnode.mining_node_instance, {"txt":"GET LATEST BLOCK HEIGHT"})
     # # Connect with another node, otherwise you do not create any network!
@@ -325,20 +334,27 @@ def initializeNode(request):
                 print("miningnode.latestBlockHeight == block_height")
                 #stop processing blocks when no blockX.dat files available to process and blockheight is > 1
                 not_done_processing_blocks = False
-    miningnode.latestBlockHeight = block_height
-    print(miningnode.chain[0])
+    miningnode.latestBlockHeight = block_height-1
+    print("latest block height")
+    print(miningnode.latestBlockHeight)
+    print("prev block height")
+    print(miningnode.chain[0]["header"]["prev_block_height"])
     context = {
             "blockID":miningnode.chain[0]["header"]["prev_block_height"],
             "transactions":miningnode.chain[0]["transactions"]
         }
     print(block_height)
     print(len(miningnode.chain))
-    if block_height == len(miningnode.chain):
-        if block_height == 1:
-            block_height = 0
+    if miningnode.latestBlockHeight >= len(miningnode.chain):
+        if miningnode.latestBlockHeight == 1:
+            miningnode.latestBlockHeight = 0
+        else:
+            miningnode.latestBlockHeight = miningnode.latestBlockHeight-1
+        print("latest block height")
+        print(miningnode.latestBlockHeight)
         context = {
-            "blockID":miningnode.chain[int(block_height)]["header"]["prev_block_height"],
-            "transactions":miningnode.chain[int(block_height)]["transactions"]
+            "blockID":miningnode.chain[miningnode.latestBlockHeight]["header"]["prev_block_height"],
+            "transactions":miningnode.chain[miningnode.latestBlockHeight]["transactions"]
         }
     else:
         print("somethings broken")

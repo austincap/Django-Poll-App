@@ -273,7 +273,11 @@ class MiningNode:
     #create binary data from memPool JSON
     def createCandidateBlock(self, blockheight, proof, prev_hash):
         #header = {version, prev_block_hash/prev_block_merkleroot, thisblocks_merkleroot, time, difficulty, nonce}
-        blockheader = {"version":self.miningnodeversion, "proof":proof, "prev_block_height":str(blockheight-1), "prev_block_hash":prev_hash, "this_block_hash": self.get_merkle_root(self.memPool), "time":datetime.datetime.timestamp(datetime.datetime.now()) }
+        if blockheight == 0:
+            blockheight = 0
+        else:
+            blockheight = int(blockheight)-1
+        blockheader = {"version":self.miningnodeversion, "proof":proof, "prev_block_height":blockheight, "prev_block_hash":prev_hash, "this_block_hash": self.get_merkle_root(self.memPool), "time":datetime.datetime.timestamp(datetime.datetime.now()) }
         #print("BLOCK HEADER")
         block = {"header":blockheader, "tx_count":len(self.memPool), "transactions":self.memPool}
         if blockheight==0:
@@ -287,6 +291,36 @@ class MiningNode:
             binary_file.write(bytesfile)
         self.memPool = {}
         print("MEMPOOL EMPTIED")
+
+    def createTestBlock(self):
+        print("self.latestBlockHeight")
+        print(self.latestBlockHeight)
+        testBlockPrevHash=self.chain[self.latestBlockHeight]["header"]["this_block_hash"]
+        testnlockLatestBlockHeight = self.chain[self.latestBlockHeight]["header"]["prev_block_height"]+1
+        testBlockNonce = 1 #aka nonce
+        testInitatorAddress = "12345"
+        #automatically create first entity (users), then create citizen so there is at least 1 transaction, genesis block hash same as vouching user id
+        testCitizen1Id = self.createNewCitizen(testInitatorAddress, {"name":"guy1", "age":33})
+        testCitizen2Id = self.createNewCitizen(testInitatorAddress, {"name":"guy2", "age":33})
+        #then propose some bills
+        testBill1Id = self.proposeNewBill(testInitatorAddress, {"data"})
+        testBill2Id = self.proposeNewBill(testInitatorAddress, {"data"})
+        #then have the 3 citizens vote
+        self.voteOnBill(testInitatorAddress, testBill2Id)
+        self.voteOnBill(testCitizen1Id, testBill2Id)
+        self.voteOnBill(testCitizen2Id, testBill2Id)
+        #resolve Bill vote simulating when turn
+        self.resolveBillVote(testBill2Id)
+        print("CREATED TEST BLOCK")
+        self.createCandidateBlock(testnlockLatestBlockHeight, testBlockNonce, testBlockPrevHash)
+
+    def proposeNewBill(self, initiatorAddress, data):
+        proposedBillAddress = hashlib.sha256(str(uuid.uuid4()).encode("utf-8")).hexdigest()
+        self.makeTransaction(self, "CREATE", "LAW", "initiator_address", proposedBillAddress, data)
+        return proposedBillAddress
+
+    def voteOnBill(self, voterCitizenId, proposedBillId):
+        self.makeTransaction(self, "VOTE", "LAW", voterCitizenId, proposedBillId, {"data":0})
 
     def get_merkle_root(self, transactionsInMemPool):
         branches = []
@@ -321,6 +355,9 @@ class MiningNode:
             return True
         else:
             return False
+
+    def resolveBillVote(self, billId):
+        return
 
     #type can be CREATE, EDIT, REMOVE, VOTE
     #recipient_address can be lawID, citizenID/ORGNAIZATIONID, COURTCASEID, PRIVELEGEID
@@ -467,6 +504,7 @@ class MiningNode:
         newCitizenId = hashlib.sha256(str(uuid.uuid4()).encode("utf-8")).hexdigest()
         self.tempUser = newCitizenId
         self.makeTransaction("CREATE", "USER", vouchingUserId, newCitizenId, citizenData)
+        return newCitizenId
 
     def createBasicIncome(self, firstAssetOwner, assetData):
         self.makeTransaction("CREATE", "ASSET", firstAssetOwner, hashlib.sha256(str(uuid.uuid4()).encode("utf-8")).hexdigest(), assetData)
