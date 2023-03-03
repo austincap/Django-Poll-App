@@ -26,9 +26,9 @@
 
 
     <div class="test candidate block">
-        <form action="{% url 'polls:vote' %}" method="POST">
+        <form action="{% url 'createTestBlock' %}" method="get">
             {% csrf_token %}
-            <button type="submit" class="btn btn-primary">Add test BLOCK</button>
+            <button type="submit" name="createTestBlock" class="btn btn-primary">Add test BLOCK</button>
         </form>
     </div>
 

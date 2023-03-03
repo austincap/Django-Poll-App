@@ -482,6 +482,7 @@ class MiningNode:
         print("transaction id")
         txid = hashlib.sha256(str(transaction).encode('utf-8')).hexdigest()
         #print(txid)
+        #tet
         transaction["v"] = self.miningnodeversion
         transaction["txid"] = txid
         #transaction["signature"] = 

@@ -21,6 +21,7 @@ import numpy as np
 from p2pnetwork.node import Node
 from p2pnetwork.nodeconnection import NodeConnection
 import os
+from configparser import ConfigParser
 
 OUTBOUND_PORT = 10001
 INBOUND_PORT = 10002
@@ -238,12 +239,14 @@ def endpoll(request, poll_id):
         return render(request, 'polls/poll_result.html', {'poll': poll})
 
 def createTestBlock(request):
+    if(request.GET.get('create_Test_Block')):
+        print("CEIUOJFOIEHJGFEOI")
     #choice = get_object_or_404(Choice, pk=choice_id)
     #poll = get_object_or_404(Poll, pk=choice.poll.id)
     #if request.user != poll.owner:
     #    return redirect('home')
     #choice.delete()
-    messages.success( request, "Choice Deleted successfully.", extra_tags='alert alert-success alert-dismissible fade show')
+    #messages.success( request, "Choice Deleted successfully.", extra_tags='alert alert-success alert-dismissible fade show')
     return redirect('show_constitution')
 
 def initializeNode(request):
@@ -251,21 +254,22 @@ def initializeNode(request):
     # Create the object of the class blockchain
     #blockchain = Blockchain()
     miningnode = MiningNode()
+    # # Connect with another node, otherwise you do not create any network!
+    miningnode.connect_to_node()
+    miningnode.requestLatestBlockHeight()
     time = str(datetime.datetime.now())
-    #create initial block
+    #read config file
+    config = ConfigParser()
+    config.read('config.ini')
+
+    #create initial block with hardcoded seed data
     block_height = 0
-    genesis_hash = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+    genesis_hash = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f" #"We respect the results of this app"
     prev_hash= genesis_hash
     prev_proof = 1 #aka nonce
     #check for existing blocks on drive
     not_done_processing_blocks = True
     create_genesis_block = False
-    #if no existing blocks, ask requested nodes for other blocks
-    #miningnode.mining_node_instance.node_message(miningnode.mining_node_instance, {"txt":"GET LATEST BLOCK HEIGHT"})
-    # # Connect with another node, otherwise you do not create any network!
-    miningnode.connect_to_node()
-
-    miningnode.requestLatestBlockHeight()
     data_from_datfile = {}
     print("begin processing blockdata")
     while(not_done_processing_blocks):
@@ -273,6 +277,7 @@ def initializeNode(request):
         miningnode.mining_node_instance.latestBlockHeight = block_height
         #file = os.path.join(os.sep, "ledgerdata" + os.sep, "block"+str(block_height)+".dat")
         blockdata = ""
+        missingFiles = 0
         print(file)
         #if existing file
         if(exists(file)):
@@ -324,6 +329,13 @@ def initializeNode(request):
                 print("create_genesis_block is true")
                 # create first block
                 miningnode.createGenesisBlock()
+                #initialize config file
+                config.add_section('blockchainstate')
+                config.set('blockchainstate', 'latestBlockHeight', block_height)
+                config.set('thisnodesuser', 'username', 'admin')
+                config.set('thisnodesuser', 'userid', 'value3')
+                with open('config.ini', 'w') as f:
+                    config.write(f)
                 create_genesis_block = False
             else:
                 print("create_genesis_block is false")
@@ -335,7 +347,7 @@ def initializeNode(request):
                 #stop processing blocks when no blockX.dat files available to process and blockheight is > 1
                 not_done_processing_blocks = False
     miningnode.latestBlockHeight = block_height-1
-    print("latest block height")
+    print("latest block height tried")
     print(miningnode.latestBlockHeight)
     print("prev block height")
     print(miningnode.chain[0]["header"]["prev_block_height"])
@@ -343,7 +355,6 @@ def initializeNode(request):
             "blockID":miningnode.chain[0]["header"]["prev_block_height"],
             "transactions":miningnode.chain[0]["transactions"]
         }
-    print(block_height)
     print(len(miningnode.chain))
     if miningnode.latestBlockHeight >= len(miningnode.chain):
         if miningnode.latestBlockHeight == 1:

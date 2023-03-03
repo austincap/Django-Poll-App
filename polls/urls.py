@@ -33,5 +33,5 @@ urlpatterns = [
     path('delete/choice/<int:choice_id>/', views.choice_delete, name='choice_delete'),
     path('<int:poll_id>/', views.poll_detail, name='detail'),
     path('<int:poll_id>/vote/', views.poll_vote, name='vote'),
-    path('addTestBlock/', views.createTestBlock, name='createTestBlock')
+    path('initialize/', views.createTestBlock, name='createTestBlock')
 ]
